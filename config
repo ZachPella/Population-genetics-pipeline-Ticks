@@ -1,0 +1,164 @@
+# Ixodes scapularis Population Genetics Pipeline Configuration
+# Modify these parameters for your specific analysis
+
+# General pipeline settings
+pipeline:
+  name: "ixodes_popgen_analysis"
+  version: "1.0.0"
+  species: "Ixodes scapularis"
+  sequencing_platform: "NovaSeq"
+
+# Sample information  
+samples:
+  count: 62
+  sample_list: "sample_list.txt"
+  naming_pattern: "*_L001_R1_*.fastq.gz"
+  lanes: ["L001", "L002"]
+
+# Directory paths (UPDATE THESE FOR YOUR SYSTEM)
+paths:
+  base_dir: "/work/fauverlab/zachpella/scripts_ticksJune2025"
+  raw_data_dir: "/work/fauverlab/shared/iscapularis_NovaSeq_S2/250610"
+  reference_dir: "/work/fauverlab/zachpella/practice_pop_gen/reference"
+  reference_genome: "masked_ixodes_ref_genome.fasta"
+
+# Output directories
+output_dirs:
+  concatenated_fastq: "concatenated_fastq"
+  trimmed_reads: "trimmed_reads"
+  fastqc_results: "fastqc_results"
+  sam_files: "sam_files"
+  bam_files: "bam_files"
+  readgroups: "readgroups"
+  dedup: "dedup"
+  genotyping: "genotyping"
+  logs: "err_and_out"
+
+# SLURM resource allocation
+resources:
+  concatenation:
+    cpus: 4
+    memory: "16G"
+    time: "0-06:00:00"
+    partition: "batch"
+  
+  trimming:
+    cpus: 1
+    memory: "15G"
+    time: "0-06:00:00"
+    partition: "batch"
+  
+  fastqc:
+    cpus: 4
+    memory: "8G"
+    time: "0-02:00:00"
+    partition: "batch"
+  
+  alignment:
+    cpus: 4
+    memory: "45G"
+    time: "6-00:00:00"
+    partition: "batch"
+  
+  bam_processing:
+    cpus: 4
+    memory: "30G"
+    time: "0-12:00:00"
+    partition: "batch"
+  
+  variant_calling:
+    cpus: 12
+    memory: "50G"
+    time: "7-00:00:00"
+    partition: "batch"
+  
+  joint_genotyping:
+    cpus: 8
+    memory: "64G"
+    time: "2-00:00:00"
+    partition: "batch"
+
+# Tool-specific parameters
+tools:
+  fastp:
+    min_length: 50
+    quality_threshold: 20
+    
+  bwa:
+    algorithm: "mem"
+    threads: 4
+    mark_shorter_splits: true  # -M flag
+    
+  gatk:
+    java_options: "-Xmx44g"
+    ploidy: 2
+    emit_ref_confidence: "GVCF"
+    native_pair_hmm_threads: 12
+    
+  samtools:
+    quality_threshold: 20
+    threads: 4
+    
+  plink:
+    output_format: "binary"
+    missing_genotype_rate: 0.1
+    minor_allele_frequency: 0.05
+
+# Quality control thresholds
+quality_control:
+  alignment:
+    min_mapping_rate: 0.80
+    max_duplicate_rate: 0.40
+  
+  variants:
+    min_quality_score: 30
+    min_depth: 5
+    max_depth: 200
+    min_genotype_quality: 20
+  
+  population:
+    min_samples_per_variant: 30  # 50% of 62 samples
+    max_missing_rate: 0.50
+
+# File naming patterns
+file_patterns:
+  raw_fastq_r1: "{sample}_L{lane}_R1_001.fastq.gz"
+  raw_fastq_r2: "{sample}_L{lane}_R2_001.fastq.gz"
+  merged_fastq_r1: "{sample}_R1_merged.fastq.gz"
+  merged_fastq_r2: "{sample}_R2_merged.fastq.gz"
+  trimmed_fastq_r1: "{sample}_R1_trimmed.fastq.gz"
+  trimmed_fastq_r2: "{sample}_R2_trimmed.fastq.gz"
+  sam_file: "{sample}.sam"
+  sorted_bam: "{sample}.sorted.bam"
+  dedup_bam: "{sample}.dedup.rg.sorted.bam"
+  gvcf: "{sample}.raw_variants.g.vcf"
+  final_vcf: "final_variants.vcf"
+  plink_prefix: "tick_variants"
+
+# Email notifications (update with your email)
+notifications:
+  email: "zpella@unmc.edu"
+  events: ["ALL"]  # Options: BEGIN, END, FAIL, ALL
+
+# Population analysis parameters
+population_analysis:
+  pca:
+    components: 10
+    pruning:
+      window_size: 50
+      step_size: 5
+      r2_threshold: 0.2
+  
+  admixture:
+    k_values: [2, 3, 4, 5, 6]
+    cross_validation: 10
+  
+  filtering:
+    linkage_disequilibrium:
+      window_size: 50
+      step_size: 5
+      r2_threshold: 0.2
+    hardy_weinberg:
+      p_value_threshold: 1e-6
+    minor_allele_frequency: 0.05
+    missing_genotype_rate: 0.1
